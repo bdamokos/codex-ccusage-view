@@ -590,6 +590,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--until", help="Passed to ccusage when --run-ccusage is set.")
     parser.add_argument("--timezone", default="Europe/Brussels", help="Timezone for ccusage and display.")
     parser.add_argument("--watch", type=int, metavar="SECONDS", help="Refresh repeatedly. Implies --run-ccusage.")
+    parser.add_argument("--no-alt-screen", action="store_true", help="Do not use the terminal alternate screen in watch mode.")
     parser.add_argument("--format", choices=("table", "json", "csv"), default="table")
     parser.add_argument("--sort", choices=("session", "recent", "cost", "last", "title", "tokens"), default="session")
     parser.add_argument("--limit", type=int, help="Limit displayed rows.")
@@ -616,19 +617,35 @@ def once(args: argparse.Namespace) -> str:
     return render(enriched, args)
 
 
+def write_watch_frame(text: str, args: argparse.Namespace) -> None:
+    sys.stdout.write("\033[H\033[J")
+    sys.stdout.write(text)
+    sys.stdout.write(f"\n\nRefreshing every {args.watch}s. Press Ctrl-C to stop.")
+    sys.stdout.flush()
+
+
+def watch(args: argparse.Namespace) -> int:
+    use_alt_screen = sys.stdout.isatty() and not args.no_alt_screen
+    if use_alt_screen:
+        sys.stdout.write("\033[?1049h\033[?25l")
+    try:
+        while True:
+            write_watch_frame(once(args), args)
+            time.sleep(args.watch)
+    except KeyboardInterrupt:
+        return 130
+    finally:
+        if use_alt_screen:
+            sys.stdout.write("\033[?25h\033[?1049l")
+        else:
+            sys.stdout.write("\n")
+        sys.stdout.flush()
+
+
 def main() -> int:
     args = parse_args()
     if args.watch:
-        while True:
-            try:
-                print("\033[2J\033[H", end="")
-                print(once(args), flush=True)
-                print(f"\nRefreshing every {args.watch}s. Press Ctrl-C to stop.", flush=True)
-                time.sleep(args.watch)
-            except KeyboardInterrupt:
-                print()
-                return 130
-        return 0
+        return watch(args)
     print(once(args))
     return 0
 

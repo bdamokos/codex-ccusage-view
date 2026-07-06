@@ -47,6 +47,9 @@ Refresh the table every minute:
 codex-ccusage-view --run-ccusage --since 2026-07-01 --timezone Europe/Brussels --sort cost --watch 60
 ```
 
+Watch mode repaints the same terminal screen instead of adding a new table on
+each refresh.
+
 Show the most recently updated Codex threads first:
 
 ```sh
