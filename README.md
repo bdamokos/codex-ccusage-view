@@ -2,11 +2,17 @@
 
 See what each Codex thread costs, with readable titles instead of rollout IDs.
 
-![Terminal output](assets/screenshot.png)
-
 `ccusage` already calculates the tokens and cost. This tool keeps the
 ccusage-style table, then replaces rollout hashes with the Codex thread title
 and a compact project label.
+
+## Before
+
+![ccusage output with rollout IDs](assets/before.png)
+
+## After
+
+![codex-ccusage-view output with readable titles](assets/after.png)
 
 ## How It Works
 
