@@ -47,9 +47,10 @@ Refresh the table every minute:
 codex-ccusage-view --run-ccusage --since 2026-07-01 --timezone Europe/Brussels --sort cost --watch 60
 ```
 
-Watch mode uses normal terminal scrollback by default, so long reports remain
-scrollable while the view refreshes. Pass `--alt-screen` if you prefer the old
-alternate-screen behavior with no scrollback.
+Watch mode uses normal terminal scrollback by default and fits the live table to
+the current terminal, so refreshes do not pile repeated full reports into
+scrollback. Pass `--limit` for an explicit row count, or `--alt-screen` if you
+prefer the old alternate-screen behavior with no scrollback.
 
 The first watch refresh lets `ccusage` fetch current pricing. Later refreshes
 automatically pass `--offline`, so they reuse cached pricing instead of checking

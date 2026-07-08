@@ -9,6 +9,7 @@ import io
 import json
 import os
 import re
+import shutil
 import shlex
 import sqlite3
 import subprocess
@@ -306,6 +307,25 @@ def watch_refresh_args(args: argparse.Namespace) -> argparse.Namespace:
     return refresh_args
 
 
+def watch_frame_args(args: argparse.Namespace) -> argparse.Namespace:
+    frame_args = argparse.Namespace(**vars(args))
+    if not sys.stdout.isatty():
+        return frame_args
+
+    terminal_size = shutil.get_terminal_size(fallback=(150, 24))
+    if frame_args.width is None:
+        frame_args.width = terminal_size.columns
+    if frame_args.limit is None:
+        frame_args.limit = watch_default_limit(terminal_size.lines)
+        frame_args.watch_auto_limit = True
+    return frame_args
+
+
+def watch_default_limit(terminal_lines: int) -> int:
+    frame_overhead_lines = 14
+    return max(1, (terminal_lines - frame_overhead_lines) // 2)
+
+
 def sort_sessions(sessions: list[dict[str, Any]], sort_key: str) -> list[dict[str, Any]]:
     if sort_key == "session":
         return sessions
@@ -342,25 +362,7 @@ def format_table(data: dict[str, Any], args: argparse.Namespace) -> str:
     if args.limit:
         sessions = sessions[: args.limit]
 
-    term_width = args.width or 150
-    numeric_w = 10
-    cost_w = 10
-    model_w = 12
-    project_w = 18
-    fixed_width = project_w + model_w + (numeric_w * 5) + cost_w + 25
-    session_w = max(30, min(56, term_width - fixed_width))
-    columns = [
-        Column("Session", session_w, "left"),
-        Column("Project", project_w, "left"),
-        Column("Models", model_w, "left"),
-        Column("Input", numeric_w, "right"),
-        Column("Output", numeric_w, "right"),
-        Column("Reasoni…", numeric_w, "right"),
-        Column("Cache\nRead", numeric_w, "right"),
-        Column("Total\nTokens", numeric_w, "right"),
-        Column("Cost\n(USD)", cost_w, "right"),
-    ]
-
+    columns = table_columns(output_width(args))
     lines = [report_banner(), ""]
     totals = data.get("totals") or {}
     lines.append(table_border(columns, "top"))
@@ -372,6 +374,51 @@ def format_table(data: dict[str, Any], args: argparse.Namespace) -> str:
     lines.append(format_table_row(columns, total_cells(totals)))
     lines.append(table_border(columns, "bottom"))
     return "\n".join(lines)
+
+
+def output_width(args: argparse.Namespace) -> int:
+    if args.width:
+        return args.width
+    if sys.stdout.isatty():
+        return shutil.get_terminal_size(fallback=(150, 24)).columns
+    return 150
+
+
+def table_columns(term_width: int) -> list["Column"]:
+    term_width = max(80, term_width)
+    if term_width >= 148:
+        numeric_w = 10
+        cost_w = 10
+        model_w = 12
+        project_w = 18
+        session_min_w = 30
+    elif term_width >= 100:
+        numeric_w = 7
+        cost_w = 8
+        model_w = 8
+        project_w = 12
+        session_min_w = 9
+    else:
+        numeric_w = 5
+        cost_w = 7
+        model_w = 6
+        project_w = 8
+        session_min_w = 6
+
+    cell_padding_and_borders = 28
+    fixed_content_w = project_w + model_w + (numeric_w * 5) + cost_w
+    session_w = max(session_min_w, min(56, term_width - fixed_content_w - cell_padding_and_borders))
+    return [
+        Column("Session", session_w, "left"),
+        Column("Project", project_w, "left"),
+        Column("Models", model_w, "left"),
+        Column("Input", numeric_w, "right"),
+        Column("Output", numeric_w, "right"),
+        Column("Reasoni…", numeric_w, "right"),
+        Column("Cache\nRead", numeric_w, "right"),
+        Column("Total\nTokens", numeric_w, "right"),
+        Column("Cost\n(USD)", cost_w, "right"),
+    ]
 
 
 @dataclass(frozen=True)
@@ -637,10 +684,13 @@ def once(args: argparse.Namespace) -> str:
 def write_watch_frame(text: str, args: argparse.Namespace) -> None:
     sys.stdout.write("\033[H\033[J")
     sys.stdout.write(text)
-    price_note = ""
+    notes = []
     if args.run_ccusage and not ccusage_offline_configured(args.ccusage_arg or []):
-        price_note = " Later refreshes use cached prices."
-    sys.stdout.write(f"\n\nRefreshing every {args.watch}s.{price_note} Press Ctrl-C to stop.")
+        notes.append("Cached prices after first.")
+    if getattr(args, "watch_auto_limit", False):
+        notes.append(f"Showing {args.limit} rows.")
+    note_text = f" {' '.join(notes)}" if notes else ""
+    sys.stdout.write(f"\n\nRefresh {args.watch}s.{note_text} Ctrl-C stops.")
     sys.stdout.flush()
 
 
@@ -652,7 +702,8 @@ def watch(args: argparse.Namespace) -> int:
         current_args = args
         cached_price_args = watch_refresh_args(args)
         while True:
-            write_watch_frame(once(current_args), args)
+            frame_args = watch_frame_args(current_args)
+            write_watch_frame(once(frame_args), frame_args)
             current_args = cached_price_args
             time.sleep(args.watch)
     except KeyboardInterrupt:
