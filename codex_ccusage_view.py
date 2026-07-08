@@ -590,7 +590,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--until", help="Passed to ccusage when --run-ccusage is set.")
     parser.add_argument("--timezone", default="Europe/Brussels", help="Timezone for ccusage and display.")
     parser.add_argument("--watch", type=int, metavar="SECONDS", help="Refresh repeatedly. Implies --run-ccusage.")
-    parser.add_argument("--no-alt-screen", action="store_true", help="Do not use the terminal alternate screen in watch mode.")
+    parser.add_argument("--alt-screen", action="store_true", help="Use the terminal alternate screen in watch mode.")
+    parser.add_argument(
+        "--no-alt-screen",
+        action="store_true",
+        help="Deprecated compatibility flag; watch mode uses normal scrollback by default.",
+    )
     parser.add_argument("--format", choices=("table", "json", "csv"), default="table")
     parser.add_argument("--sort", choices=("session", "recent", "cost", "last", "title", "tokens"), default="session")
     parser.add_argument("--limit", type=int, help="Limit displayed rows.")
@@ -625,7 +630,7 @@ def write_watch_frame(text: str, args: argparse.Namespace) -> None:
 
 
 def watch(args: argparse.Namespace) -> int:
-    use_alt_screen = sys.stdout.isatty() and not args.no_alt_screen
+    use_alt_screen = sys.stdout.isatty() and args.alt_screen and not args.no_alt_screen
     if use_alt_screen:
         sys.stdout.write("\033[?1049h\033[?25l")
     try:

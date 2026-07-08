@@ -47,8 +47,9 @@ Refresh the table every minute:
 codex-ccusage-view --run-ccusage --since 2026-07-01 --timezone Europe/Brussels --sort cost --watch 60
 ```
 
-Watch mode repaints the same terminal screen instead of adding a new table on
-each refresh.
+Watch mode uses normal terminal scrollback by default, so long reports remain
+scrollable while the view refreshes. Pass `--alt-screen` if you prefer the old
+alternate-screen behavior with no scrollback.
 
 Show the most recently updated Codex threads first:
 
