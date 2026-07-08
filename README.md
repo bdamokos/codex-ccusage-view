@@ -51,6 +51,11 @@ Watch mode uses normal terminal scrollback by default, so long reports remain
 scrollable while the view refreshes. Pass `--alt-screen` if you prefer the old
 alternate-screen behavior with no scrollback.
 
+The first watch refresh lets `ccusage` fetch current pricing. Later refreshes
+automatically pass `--offline`, so they reuse cached pricing instead of checking
+live prices every time. Pass `--ccusage-arg=--no-offline` to force live pricing
+on every refresh.
+
 Show the most recently updated Codex threads first:
 
 ```sh

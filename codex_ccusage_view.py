@@ -294,6 +294,18 @@ def run_ccusage(args: argparse.Namespace) -> dict[str, Any]:
     return json.loads(proc.stdout)
 
 
+def ccusage_offline_configured(ccusage_args: list[str]) -> bool:
+    return any(arg in ("-O", "--offline", "--no-offline") for arg in ccusage_args)
+
+
+def watch_refresh_args(args: argparse.Namespace) -> argparse.Namespace:
+    if ccusage_offline_configured(args.ccusage_arg or []):
+        return args
+    refresh_args = argparse.Namespace(**vars(args))
+    refresh_args.ccusage_arg = list(args.ccusage_arg or []) + ["--offline"]
+    return refresh_args
+
+
 def sort_sessions(sessions: list[dict[str, Any]], sort_key: str) -> list[dict[str, Any]]:
     if sort_key == "session":
         return sessions
@@ -625,7 +637,10 @@ def once(args: argparse.Namespace) -> str:
 def write_watch_frame(text: str, args: argparse.Namespace) -> None:
     sys.stdout.write("\033[H\033[J")
     sys.stdout.write(text)
-    sys.stdout.write(f"\n\nRefreshing every {args.watch}s. Press Ctrl-C to stop.")
+    price_note = ""
+    if args.run_ccusage and not ccusage_offline_configured(args.ccusage_arg or []):
+        price_note = " Later refreshes use cached prices."
+    sys.stdout.write(f"\n\nRefreshing every {args.watch}s.{price_note} Press Ctrl-C to stop.")
     sys.stdout.flush()
 
 
@@ -634,8 +649,11 @@ def watch(args: argparse.Namespace) -> int:
     if use_alt_screen:
         sys.stdout.write("\033[?1049h\033[?25l")
     try:
+        current_args = args
+        cached_price_args = watch_refresh_args(args)
         while True:
-            write_watch_frame(once(args), args)
+            write_watch_frame(once(current_args), args)
+            current_args = cached_price_args
             time.sleep(args.watch)
     except KeyboardInterrupt:
         return 130
